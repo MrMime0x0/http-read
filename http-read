@@ -1,0 +1,55 @@
+metaxploit = include_lib("/lib/metaxploit.so")
+if not metaxploit then exit("Error: 'metaxploit.so' library not found.")
+
+if params.len != 2 then
+    exit("<b>Usage: "+program_path+" [ip_address] [port]</b>")
+end if
+
+ip_address = params[0]
+port = params[1].to_int
+
+// Attempt to connect to the target on the specified port
+net_session = metaxploit.net_use(ip_address, port)
+if not net_session then exit("Error: Unable to connect to " + ip_address + ":" + port)
+
+// Load the library from the remote session
+metaLib = net_session.dump_lib
+if not metaLib then exit("Error: Failed to retrieve remote library")
+
+// Try exploiting an overflow vulnerability
+exploit_result = metaLib.overflow("[REDACTED]", "[REDACTED]")
+if not exploit_result then exit("Exploit failed")
+
+// Handle the result of the exploit
+if typeof(exploit_result) == "file" then
+    print("File found: " + exploit_result.path)
+    if exploit_result.has_permission("r") then
+        print("Reading file contents:\n" + exploit_result.get_content)
+    else
+        print("No read permission for the file.")
+    end if
+end if
+
+if typeof(exploit_result) == "shell" then
+    print("Shell obtained!")
+    shell = exploit_result
+    computer = shell.host_computer
+
+    // Attempt to check permissions by modifying a common file or directory
+    passwd_file = computer.File("/etc/passwd")
+    if passwd_file.has_permission("r") then
+        print("Access to /etc/passwd: Readable")
+        user = "root"
+    else
+        print("Access to /etc/passwd: Not readable")
+        user = "guest"
+    end if
+
+    if user == "root" then
+        print("Root access granted!")
+    else
+        print("Guest access, no root permissions.")
+    end if
+else
+    print("Unexpected result type: " + typeof(exploit_result))
+end if
